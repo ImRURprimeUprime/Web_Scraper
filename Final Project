@@ -1,0 +1,245 @@
+"""
+Purpose:
+-----------
+This program is a web scraper which could compare and sort the price and value 
+for the search results on thecubicle.com
+
+Authors:
+-----------
+Allan Wang and Yuqi Zhu
+"""
+
+#imports
+import requests
+from bs4 import BeautifulSoup
+import operator
+import matplotlib.pyplot as plt
+import numpy as np
+
+#base url
+#source code of the website does not include the base url in the links
+url = 'https://www.thecubicle.com/'
+
+#user input for search
+search = input("what would you like to search for?")
+
+product_links = []
+#determining the amount of pages to look through with for loop and f string
+for page_num in range(1, 2):
+    r = requests.get(f'https://www.thecubicle.com/search?page={page_num}&q={search}')
+
+    #r.content is the HTML content as a stream of bytes
+    soup = BeautifulSoup(r.content, 'lxml')
+
+    #scan entire soup for keywords
+    #product_list stores the section of the source code for each individual product
+    product_list = soup.find_all('div', class_ = 'grid-item large--one-fifth medium--one-third small--one-half')
+
+    for i in product_list:
+        #using lines in product_list
+        #saving the link of the individual product
+        for link in i.find_all('a', href=True):
+            product_links.append(url + link['href'])
+
+bundle_links = []
+info = []
+
+#visiting the links of individual products
+for link in product_links:
+    r1 = requests.get(link)
+    soup = BeautifulSoup(r1.content, 'lxml')
+
+    #saving the name
+    name = soup.find('h1', class_ = 'h2').text
+    print('saving: ' + name)
+
+    #saving amount of reviews
+    review_amount = soup.find('span', class_ = 'jdgm-prev-badge__text').text
+    #formatting the reviews into int
+    review_amount = review_amount.replace(' reviews', "")
+    review_amount = review_amount.replace(' review', "")
+    if review_amount == ' No ':
+        review_amount = 0
+    review_amount = int(review_amount)
+
+    #saving the star ratings
+    html = soup.find('div', class_= 'jdgm-prev-badge')
+    soup2 = BeautifulSoup(str(html), 'lxml')
+    ratings = soup2.find('span')
+    #formatting the ratings into a float
+    ratings = float(ratings['aria-label'][0:4])
+
+    #saving the price for bundles
+    if "Bundle" in name:
+        bundle_links = []
+        #adding the section of source code for each individual bundle item to bundle_list
+        bundle_list = soup.find_all('div', class_ = 'grid-item-cu')
+        for i in bundle_list:
+            #adding the link of the individual item to bundle_links
+            for link in i.find_all('a', href=True):
+                bundle_links.append(url + link['href'])
+        price_value = 0
+        #visiting the individual links in the bundle and getting the price of individual items
+        for link in bundle_links:
+            r2 = requests.get(link)
+            soup = BeautifulSoup(r2.content, 'lxml')
+            individual_price = soup.find('span', class_ = 'visually-hidden').text
+            #formatting
+            price = individual_price.replace("$", "")
+            price1 = float(price)*0.9
+            price_value += price1
+            price_value = "{:.2f}".format(price_value)
+            price_value = float(price_value)
+
+    #saving price for individual items
+    else:
+        price = soup.find('span', class_ = 'visually-hidden').text
+        price = price.replace("$", "") 
+        price_value = float(price)
+
+    #dictionary for the current product
+    product_info = {
+    'name' : name,
+    'price' : price_value,
+    'review_amount': review_amount,
+    'price_string' : "$" + str(price_value),
+    'ratings' : ratings,
+    'ratings_string' : str(ratings) + "stars"
+    }
+    #store the dictionary in a list
+    info.append(product_info)
+
+#function to sort and output the products by their price
+def price():
+    """
+    Variables:
+    -----------
+    The integer variables were created to keep track of amount of the amount of products
+    within each price range
+
+    For Loop:
+    -----------
+    The for loop gets the name and price of the items, and stores them in lists for graphing.
+    Also checks the price range which the product is in
+    """
+
+    x = []
+    y = []
+    below_twenty = 0
+    twenty_to_fourty = 0
+    fourty_to_sixty = 0
+    sixty_plus = 0
+    #sort list of dictionaries by their price
+    info.sort(key=operator.itemgetter('price'))
+
+    for i in info:
+        x.append(i.get("name"))
+        y.append(i.get("price"))
+        #cheking the price of different products and determine its price range
+        if i.get("price") <= 20:
+            below_twenty += 1
+        if i.get("price") > 20 and i.get("price") <= 40:
+            twenty_to_fourty += 1
+        if i.get("price") > 40 and i.get("price") <= 60:
+            fourty_to_sixty += 1
+        if i.get("price") > 60:
+            sixty_plus += 1
+
+    #pie chart created with the variables
+    plt.subplot(3, 1, 3)
+    t = np.array([below_twenty, twenty_to_fourty, fourty_to_sixty, sixty_plus])
+    mylabels = ["<$20", "$20 to $40", "$40 to $60", "$60+"]
+    plt.pie(t, labels = mylabels) 
+    plt.legend(title = 'Price Ranges')
+    plt.title('Amount of Products in Price Ranges')
+
+    plt.rcParams['font.size'] = '5'
+
+    #bar graph of items from price low to high 
+    plt.subplot(3, 2, 1)
+    plt.bar(x, y)
+    plt.title('Sorted by Price (low to high)', fontsize = 14)
+    plt.xlabel('Product Name', fontsize = 12)
+    plt.ylabel('Price', fontsize = 12)
+    plt.xticks(rotation = 75)
+
+    #bar graph of items from price high to low
+    #reverse the lists which contain the product name and price
+    x.reverse()
+    y.reverse()
+    plt.subplot(3, 2, 2)
+    plt.bar(x, y)
+    plt.title('Sorted by Price (high to low)', fontsize = 14)
+    plt.xlabel('Product Name', fontsize = 12)
+    plt.ylabel('Price', fontsize = 12)
+    plt.xticks(rotation = 75)
+
+    plt.show()
+
+    """Sorts the products according to the price of products
+
+    This function sorts the dictionaries in the list by price, and the graphs are 
+    generated by accessing different values of the dictionary while following the 
+    order of which they are in in the list of dictionaries. 
+    This function uses integer variables to keep track of the amount of products in a
+    certain price range, and uses them to generate a pie chart to visualize the amount
+    of items within a certain price range. 
+    """
+
+#this function sorts and outputs products by its reviews
+def reviews():
+
+    """
+    Purpose:
+    -----------
+    Sort the list of dictionaries by the key: ratings
+
+    Form graphs based on the ratings and reviews of the cube
+    """
+
+    info.sort(key=operator.itemgetter('ratings'))
+    #sorted list is sorted from lowest ratings to the highest ratings
+    info.reverse()
+
+    #creating empty lists
+    x = []
+    y = []
+    k = []
+
+    #adding elements of dictionaries into the lists by key
+    for i in info:
+        x.append(i.get("name"))
+        y.append(i.get("ratings"))
+        k.append(i.get("review_amount"))
+    plt.rcParams['font.size'] = '4'
+
+    #bar graph for star rating
+    plt.subplot(3, 2, 1)
+    plt.bar(x, y)
+    plt.title('Product Ratings (out of 5 stars)', fontsize = 14)
+    plt.ylabel('Product Ratings', fontsize = 12)
+    plt.xlabel('Product Name', fontsize = 12)
+    plt.xticks(rotation = 75)
+
+    #bar graph for amount of reviews
+    plt.subplot(3, 2, 2)
+    plt.bar(x, k)
+    plt.title('Product Reviews', fontsize = 14)
+    plt.ylabel('Amount of Reviews', fontsize = 12)
+    plt.xlabel('Product Name', fontsize = 12)
+    plt.xticks(rotation = 75)
+
+    plt.show()
+
+    """Creating graphs by adding dictionaries into empty lists in sorted order by their reviews
+
+    This function accesses the values of the key of the dictionaries and sorts the dictionary
+    in the list by their star ratings and amount of use reviews.
+    """
+
+#sort by user input
+user_input = input("Sort by... (price or reviews)")
+if user_input == "price" or user_input == 'Price':
+    price()
+if user_input == "reviews" or user_input == "Reviews":
+    reviews()
