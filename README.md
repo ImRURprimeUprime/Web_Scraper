@@ -12,7 +12,7 @@ pip install matplotlib
 ```
 ## Usage
 
-Type in the item to search for when the terminal prompts:
+Type the keyword to search for when the terminal prompts:
 
 ```
 'what would you like to search for?'
