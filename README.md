@@ -8,6 +8,7 @@ Use the package manager pip to install libraries.
 example:
 ```
 pip install requests
+pip install matplotlib
 ```
 ## Usage
 
