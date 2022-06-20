@@ -13,13 +13,22 @@ pip install matplotlib
 ## Usage
 
 Type the keyword to search for when the terminal prompts:
+```
+what would you like to search for?
+```
+
+ex. gan cube
 
 ```
-'what would you like to search for?'
+what would you like to search for?gan cube
 ```
 
 Type in price or reviews to sort the products when the terminal prompts:
-
 ```
 'Sort by... (price or reviews)'
+```
+
+ex. price
+```
+'Sort by... (price or reviews)'price
 ```
